@@ -70,6 +70,9 @@ class GasUtilsTest(TestCase):
         """Test the gas util gas_price_to_confirm_time_minutes method."""
         assert gas_price_to_confirm_time_minutes(2) == 4
 
+    def test_dummmy_gas(self):
+        assert gas_price_to_confirm_time_minutes(1) != 4
+        
     def test_eth_usd_conv_rate(self):
         """Test the gas util eth_usd_conv_rate method."""
         assert round(eth_usd_conv_rate()) == 3
