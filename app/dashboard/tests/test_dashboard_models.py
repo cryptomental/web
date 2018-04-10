@@ -90,7 +90,116 @@ class DashboardModelsTest(TestCase):
         assert bounty_fulfillment.profile.handle == 'fred'
         assert bounty_fulfillment.bounty.title == 'foo'
 
-    def test_tip(self):
+    @staticmethod
+    def test_exclude_bounty_by_status():
+        Bounty.objects.create(
+          title='First',
+          idx_status=0,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2008, 11, 30, tzinfo=pytz.UTC),
+          raw_data={}
+        )
+        Bounty.objects.create(
+          title='Second',
+          idx_status=1,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2008, 11, 30, tzinfo=pytz.UTC),
+          raw_data={}
+        )
+        Bounty.objects.create(
+          title='Third',
+          idx_status=2,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2222, 11, 30, tzinfo=pytz.UTC),
+          raw_data={},
+        )
+        Bounty.objects.create(
+          title='Fourth',
+          idx_status=3,
+          is_open=True,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2222, 11, 30, tzinfo=pytz.UTC),
+          raw_data={}
+        )
+        bounty_stats = Bounty.objects.exclude_by_status()
+        assert len(bounty_stats) == 4
+        bounty_stats = Bounty.objects.exclude_by_status(['open'])
+        assert len(bounty_stats) == 3
+        bounty_stats = Bounty.objects.exclude_by_status(['cancelled', 'done'])
+        assert len(bounty_stats) == 3
+        bounty_stats = Bounty.objects.exclude_by_status(['open', 'expired', 'cancelled'])
+        assert len(bounty_stats) == 0
+
+    @staticmethod
+    def test_relative_bounty_url_with_malformed_issue_number():
+        bounty = Bounty.objects.create(
+          title='First',
+          idx_status=0,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2008, 11, 30, tzinfo=pytz.UTC),
+          github_url='https://github.com/gitcoinco/web/issues/0xDEADBEEF',
+          raw_data={}
+        )
+        expected_url = '/funding/details?url=https://github.com/gitcoinco/web/issues/0xDEADBEEF'
+        assert bounty.get_relative_url() == expected_url
+
+    @staticmethod
+    def test_get_natural_value_if_bad_token_address_provided():
+        bounty = Bounty.objects.create(
+          title='BadTokenBounty',
+          idx_status=0,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2008, 11, 30, tzinfo=pytz.UTC),
+          token_address='0xDEADDEADDEADDEAD',
+          raw_data={}
+        )
+        assert bounty.get_natural_value() == 0
+
+    @staticmethod
+    def test_can_submit_legacy_bounty_after_expiration_date():
+        bounty = Bounty.objects.create(
+          title='ExpiredBounty',
+          web3_type='legacy_gitcoin',
+          idx_status=0,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2008, 11, 30, tzinfo=pytz.UTC),
+          raw_data={}
+        )
+        assert bounty.is_legacy is True
+        assert bounty.can_submit_after_expiration_date is True
+
+    @staticmethod
+    def test_cannot_submit_standard_bounty_after_expiration_date():
+        bounty = Bounty.objects.create(
+          title='ExpiredBounty',
+          idx_status=0,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2008, 11, 30, tzinfo=pytz.UTC),
+          raw_data={}
+        )
+        assert bounty.can_submit_after_expiration_date is False
+
+    @staticmethod
+    def test_can_submit_standard_bounty_after_expiration_date_if_deadline_extended():
+        bounty = Bounty.objects.create(
+          title='ExpiredBounty',
+          idx_status=0,
+          is_open=False,
+          web3_created=datetime(2008, 10, 31, tzinfo=pytz.UTC),
+          expires_date=datetime(2008, 11, 30, tzinfo=pytz.UTC),
+          raw_data={'contract_deadline': 1001, 'ipfs_deadline': 1000}
+        )
+        assert bounty.can_submit_after_expiration_date is True
+
+    @staticmethod
+    def test_tip():
         """Test the dashboard Tip model."""
         tip = Tip(
             emails=['foo@bar.com'],
